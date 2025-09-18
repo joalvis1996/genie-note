@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 import streamlit as st
 from src.graph.workflow import build_app
@@ -34,7 +35,19 @@ if st.button("분석하기") and note.strip():
                 st.write(desc)
             if bullets := card.get("bullets", []):
                 st.markdown("\n".join([f"- {b}" for b in bullets]))
-            if links := card.get("links", []):
+            links = card.get("links", [])
+
+            if links:
                 st.markdown("**관련 링크**")
                 for l in links:
-                    st.markdown(f"- [{l.get('title','링크')}]({l.get('url','#')})")
+                    title = l.get("title", "링크")
+                    url = l.get("url", "#")
+
+                    # 보정: https:// 없으면 붙여주기
+                    if not re.match(r"^https?://", url):
+                        url = "https://" + url.lstrip("/")
+
+                    st.markdown(f"- [{title}]({url})", unsafe_allow_html=True)
+
+
+
