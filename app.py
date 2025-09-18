@@ -1,30 +1,26 @@
 import os
 from dotenv import load_dotenv
+import streamlit as st
+from src.graph.workflow import build_app
 
-# ✅ .env 경로 강제 지정
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path, override=True)
 else:
-    print("⚠️ .env 파일을 찾을 수 없습니다:", dotenv_path)
+    st.warning(f".env 파일을 찾을 수 없습니다: {dotenv_path}")
 
-print("DEBUG KAKAO_REST_API_KEY =", os.getenv("KAKAO_REST_API_KEY"))  # 👈 확인용
-import streamlit as st
-from src.graph.workflow import build_app
+st.write("DEBUG KAKAO_REST_API_KEY =", os.getenv("KAKAO_REST_API_KEY"))  # 디버깅용
 
-st.set_page_config(page_title="Genie Note", page_icon="🧞‍♂️", layout="centered")
-st.title("🧞 Genie Note")
+# ✅ 앱 실행
+st.title("Genie Note - 장소 검색")
 
+# 세션에 agent 저장 (매번 초기화 방지)
 if "_genie_app" not in st.session_state:
     st.session_state._genie_app = build_app()
 
-app = st.session_state._genie_app
+note = st.text_input("검색 요청을 입력하세요", "잠실역 2번 출구 근처 치과")
 
-note = st.text_area("노트 입력", placeholder="예: 강남역 10번 출구 양고기집")
-
-if st.button("분석하기") and note.strip():
-    with st.spinner("검색하고 요약하는 중..."):
-        response = app.invoke({"input": note.strip()})
-
-    st.subheader("검색 결과")
+if st.button("검색"):
+    agent = st.session_state._genie_app
+    response = agent.invoke({"input": note})
     st.write(response["output"])
