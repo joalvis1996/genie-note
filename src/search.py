@@ -3,6 +3,9 @@ import os
 from tavily import TavilyClient
 
 def search_web(query: str, max_results: int = 5):
+    """
+    Tavily API를 사용한 웹 검색 함수
+    """
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
         raise RuntimeError("TAVILY_API_KEY 가 필요합니다. .env를 확인하세요.")
