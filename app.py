@@ -20,6 +20,11 @@ app = st.session_state._genie_app
 # 입력 박스
 note = st.text_area("노트 입력", placeholder="예: 9월 19일 홍대입구역 2번출구")
 
+# URL 자동 하이퍼링크 변환 함수
+def linkify(text: str) -> str:
+    url_pattern = r"(https?://[^\s]+)"
+    return re.sub(url_pattern, r"[\1](\1)", text)
+
 # 버튼 눌렀을 때만 실행
 if st.button("분석하기") and note.strip():
     with st.spinner("검색하고 요약하는 중..."):
@@ -34,20 +39,5 @@ if st.button("분석하기") and note.strip():
             if desc := card.get("description"):
                 st.write(desc)
             if bullets := card.get("bullets", []):
-                st.markdown("\n".join([f"- {b}" for b in bullets]))
-            links = card.get("links", [])
-
-            if links:
-                st.markdown("**관련 링크**")
-                for l in links:
-                    title = l.get("title", "링크")
-                    url = l.get("url", "#")
-
-                    # 보정: https:// 없으면 붙여주기
-                    if not re.match(r"^https?://", url):
-                        url = "https://" + url.lstrip("/")
-
-                    st.markdown(f"- [{title}]({url})", unsafe_allow_html=True)
-
-
-
+                # 각 불릿마다 링크 자동 변환
+                st.markdown("\n".join([f"- {linkify(b)}" for b in bullets]), unsafe_allow_html=True)
