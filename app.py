@@ -1,36 +1,30 @@
-import re
-import streamlit as st
-from src.graph.workflow import build_app
-
 import os
 from dotenv import load_dotenv
 
-# ✅ 앱 시작 시 한 번만 로드
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
+# ✅ .env 경로 강제 지정
+dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path, override=True)
+else:
+    print("⚠️ .env 파일을 찾을 수 없습니다:", dotenv_path)
 
+print("DEBUG KAKAO_REST_API_KEY =", os.getenv("KAKAO_REST_API_KEY"))  # 👈 확인용
 import streamlit as st
 from src.graph.workflow import build_app
 
-# 기본 페이지 설정
 st.set_page_config(page_title="Genie Note", page_icon="🧞‍♂️", layout="centered")
 st.title("🧞 Genie Note")
 
-# 세션 상태에 워크플로우 보관 (한번만 build)
 if "_genie_app" not in st.session_state:
     st.session_state._genie_app = build_app()
 
 app = st.session_state._genie_app
 
-# 입력 박스
-note = st.text_area("노트 입력", placeholder="예: 9월 19일 홍대입구역 2번출구")
+note = st.text_area("노트 입력", placeholder="예: 강남역 10번 출구 양고기집")
 
-# URL 자동 하이퍼링크 변환 함수
-def linkify(text: str) -> str:
-    url_pattern = r"(https?://[^\s]+)"
-    return re.sub(url_pattern, r"[\1](\1)", text)
-
-# 버튼 눌렀을 때만 실행
 if st.button("분석하기") and note.strip():
     with st.spinner("검색하고 요약하는 중..."):
-        response = app.invoke({"input": note.strip()})   # ✅ run 대신 invoke 사용
-        st.write(response)
+        response = app.invoke({"input": note.strip()})
+
+    st.subheader("검색 결과")
+    st.write(response["output"])
