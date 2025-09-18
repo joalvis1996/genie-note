@@ -1,8 +1,5 @@
-from dotenv import load_dotenv
 import os
 import requests
-
-load_dotenv()  # ✅ env 불러오기
 
 def search_location(query: str) -> str:
     api_key = os.getenv("KAKAO_REST_API_KEY")
@@ -13,14 +10,22 @@ def search_location(query: str) -> str:
     headers = {"Authorization": f"KakaoAK {api_key}"}
     params = {"query": query, "size": 5}
 
-    resp = requests.get(url, headers=headers, params=params)
-    if resp.status_code != 200:
-        return f"API 호출 실패: {resp.status_code}"
+    try:
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
 
-    documents = resp.json().get("documents", [])
-    if not documents:
-        return "검색 결과가 없습니다."
+        if not data.get("documents"):
+            return "검색 결과가 없습니다."
 
-    results = [f"{place['place_name']} ({place['road_address_name']})" 
-               for place in documents]
-    return " | ".join(results)
+        results = []
+        for doc in data["documents"]:
+            name = doc.get("place_name", "알 수 없음")
+            address = doc.get("road_address_name") or doc.get("address_name", "")
+            url = doc.get("place_url", "")
+            results.append(f"{name} - {address} ({url})")
+
+        return "\n".join(results)
+
+    except Exception as e:
+        return f"API 호출 실패: {e}"

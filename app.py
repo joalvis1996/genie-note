@@ -1,11 +1,15 @@
-import os
 import re
-from dotenv import load_dotenv
 import streamlit as st
 from src.graph.workflow import build_app
 
-# 환경 변수 로드
-load_dotenv()
+import os
+from dotenv import load_dotenv
+
+# ✅ 앱 시작 시 한 번만 로드
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
+
+import streamlit as st
+from src.graph.workflow import build_app
 
 # 기본 페이지 설정
 st.set_page_config(page_title="Genie Note", page_icon="🧞‍♂️", layout="centered")
