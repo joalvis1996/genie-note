@@ -27,7 +27,6 @@ def linkify(text: str) -> str:
 
 # 버튼 눌렀을 때만 실행
 if st.button("분석하기") and note.strip():
-    with st.spinner("검색 중..."):
-        response = app.run(note.strip())
-    st.write(response)
-
+    with st.spinner("검색하고 요약하는 중..."):
+        response = app.invoke({"input": note.strip()})   # ✅ run 대신 invoke 사용
+        st.write(response)
