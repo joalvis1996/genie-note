@@ -27,17 +27,7 @@ def linkify(text: str) -> str:
 
 # 버튼 눌렀을 때만 실행
 if st.button("분석하기") and note.strip():
-    with st.spinner("검색하고 요약하는 중..."):
-        final_state = app.invoke({"note": note.strip() if note else ""})
+    with st.spinner("검색 중..."):
+        response = app.run(note.strip())
+    st.write(response)
 
-    cards = final_state.get("cards", [])
-    if not cards:
-        st.info("표시할 추천 카드가 없어요. 다른 메모로 시도해보세요!")
-    else:
-        for idx, card in enumerate(cards, start=1):
-            st.subheader(f"카드 {idx}: {card.get('title','추천 정보')}")
-            if desc := card.get("description"):
-                st.write(desc)
-            if bullets := card.get("bullets", []):
-                # 각 불릿마다 링크 자동 변환
-                st.markdown("\n".join([f"- {linkify(b)}" for b in bullets]), unsafe_allow_html=True)

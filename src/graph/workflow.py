@@ -7,6 +7,9 @@ from src.search import search_web
 from src.summarize import summarize_results
 from src.llm import get_llm
 
+from langchain.agents import initialize_agent
+from src.llm import get_llm
+from src.tools.location import search_location
 
 # --- 상태 정의 ---
 class AppState(TypedDict):
@@ -45,19 +48,15 @@ def node_summarize(state: AppState) -> AppState:
     }]
     return state
 
-
-# --- 워크플로 빌더 ---
 def build_app():
-    workflow = StateGraph(state_schema=AppState)  # ✅ 반드시 state_schema 지정
+    llm = get_llm()
+    tools = [search_location]
 
-    # 노드 등록
-    workflow.add_node("classify", node_classify)
-    workflow.add_node("search", node_search)
-    workflow.add_node("summarize", node_summarize)
+    agent = initialize_agent(
+        tools=tools,
+        llm=llm,
+        agent="zero-shot-react-description",
+        verbose=True
+    )
 
-    # 흐름 정의
-    workflow.set_entry_point("classify")
-    workflow.add_edge("classify", "search")
-    workflow.add_edge("search", "summarize")
-
-    return workflow.compile()
+    return agent
