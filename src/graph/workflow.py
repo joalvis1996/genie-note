@@ -1,48 +1,58 @@
 # src/graph/workflow.py
-from langchain.prompts import ChatPromptTemplate
+import os
 from langchain.agents import create_react_agent, AgentExecutor
-from langchain_core.prompts import MessagesPlaceholder
-from src.llm import get_llm
-from src.tools.location import search_location
+from langchain_core.prompts import PromptTemplate
+from langchain_community.tools import DuckDuckGoSearchResults
+from langchain_huggingface import HuggingFaceEndpoint
+
 
 def build_app():
-    llm = get_llm()
+    # 1. LLM 설정 (무료 HuggingFace 모델 사용)
+    llm = HuggingFaceEndpoint(
+        repo_id="google/flan-t5-base",  # 간단한 text2text 모델
+        huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
+        task="text2text-generation",
+    )
 
-    # 사용할 툴 정의
-    tools = [search_location]
+    # 2. 검색 도구 설정
+    search = DuckDuckGoSearchResults(name="search")
 
-    # React Agent 프롬프트
-    prompt = ChatPromptTemplate.from_messages([
-        ("system",
-         "너는 장소 검색 비서야.\n"
-         "사용자가 요청하면 반드시 search_location 도구를 호출해야 한다.\n\n"
-         "✅ 도구 호출 형식:\n"
-         "Thought: 무엇을 할지 생각\n"
-         "Action: search_location\n"
-         "Action Input: {{ \"location\": \"장소명\", \"query\": \"검색 키워드\", \"radius\": 숫자, \"category\": \"카테고리\" }}\n\n"
-         "⚠️ 규칙:\n"
-         "- Action Input은 반드시 JSON 형식으로 작성\n"
-         "- 도구 실행 후 결과를 받은 뒤에는 반드시 'Final Answer:' 로 요약된 답을 작성\n"
-         "- Final Answer에는 search_location(...) 같은 호출 코드가 들어가면 안 되고, "
-         "도구의 검색 결과 요약만 들어가야 한다.\n\n"
-         "사용 가능한 도구:\n{tools}\n\n"
-         "도구 이름: {tool_names}\n"),
-        ("human", "{input}"),
-        MessagesPlaceholder("agent_scratchpad"),
-    ])
+    # 3. 프롬프트 정의 (필수 변수: input, agent_scratchpad, tools, tool_names)
+    template = """
+    You are a search assistant that helps users explore information step by step.
 
-    # 에이전트 생성
+    Available tools:
+    {tools}
+
+    User input: {input}
+
+    Thought: Decide what to do next.
+    Action: Use one of [{tool_names}] if needed.
+    Action Input: Provide the correct query.
+    Observation: Results from the tool will appear here.
+
+    When you have enough information, provide a Final Answer summarizing key points.
+
+    {agent_scratchpad}
+    """
+
+    prompt = PromptTemplate(
+        input_variables=["input", "agent_scratchpad", "tools", "tool_names"],
+        template=template,
+    )
+
+    # 4. ReAct Agent 생성
     agent = create_react_agent(
         llm=llm,
-        tools=tools,
+        tools=[search],
         prompt=prompt,
     )
 
-    # 실행기 (파싱 오류 시 재시도 가능)
+    # 5. Executor
     executor = AgentExecutor(
         agent=agent,
-        tools=tools,
-        handle_parsing_errors=True,
-        verbose=True
+        tools=[search],
+        verbose=True,
     )
+
     return executor
