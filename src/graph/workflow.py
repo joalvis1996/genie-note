@@ -1,74 +1,48 @@
 # src/graph/workflow.py
-import os
-from langchain_openai import ChatOpenAI
-from langchain.agents import create_openai_tools_agent, AgentExecutor
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from src.tools.location import search_location_tool
-
-CATEGORY_MAPPING = {
-    "MT1": "대형마트",
-    "CS2": "편의점",
-    "PS3": "어린이집, 유치원",
-    "SC4": "학교",
-    "AC5": "학원",
-    "PK6": "주차장",
-    "OL7": "주유소, 충전소",
-    "SW8": "지하철역",
-    "BK9": "은행",
-    "CT1": "문화시설",
-    "AG2": "중개업소",
-    "PO3": "공공기관",
-    "AT4": "관광명소",
-    "AD5": "숙박",
-    "FD6": "음식점",
-    "CE7": "카페",
-    "HP8": "병원",
-    "PM9": "약국",
-}
+from langchain.prompts import ChatPromptTemplate
+from langchain.agents import create_react_agent, AgentExecutor
+from langchain_core.prompts import MessagesPlaceholder
+from src.llm import get_llm
+from src.tools.location import search_location
 
 def build_app():
-    llm = ChatOpenAI(
-        model=os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct"),
-        openai_api_key=os.getenv("OPENROUTER_API_KEY"),
-        openai_api_base="https://openrouter.ai/api/v1",
-        temperature=0.2,
-    )
-    tools = [search_location_tool]
+    llm = get_llm()
 
-    category_info = "\n".join([f"- {k}: {v}" for k, v in CATEGORY_MAPPING.items()])
+    # 사용할 툴 정의
+    tools = [search_location]
 
-    # ✅ Prompt 강화: 반드시 Tool만 호출
+    # React Agent 프롬프트
     prompt = ChatPromptTemplate.from_messages([
-        ("system", f"""너는 카카오맵 API 검색 도우미다.
-아래 규칙을 반드시 지켜라:
-
-⚠️ 규칙:
-1. 사용자의 요청에서 **location**만 추출한다.
-2. query는 LLM이 절대 생성하지 않는다. (코드에서 사용자 입력 그대로 사용한다)
-3. category는 아래 매핑표에서 **정확히 일치하는 경우에만** 넣는다.
-   - 예: 치과, 병원 → HP8
-   - 카페 → CE7
-   - 음식점 → FD6
-   - 은행 → BK9
-   (카테고리 매핑표)
-{category_info}
-4. 적절한 카테고리를 확실히 찾을 수 없다면, **category는 아예 넣지 않는다.**
-5. radius는 사용자가 언급했을 때만 넣는다. (기본값은 1000m)
-6. Action Input은 반드시 JSON 형식으로 작성해야 한다.
-7. JSON에는 location, radius, category만 포함한다. (query는 절대 포함하지 않는다)
-8. 절대 직접 답변을 생성하지 말고, 반드시 search_location 도구를 호출해야 한다.
-9. 최종 답변은 Tool 실행 결과를 그대로 출력해야 하며, 네가 직접 요약/서술을 덧붙이지 않는다.
-"""),
+        ("system",
+         "너는 장소 검색 비서야.\n"
+         "사용자가 요청하면 반드시 search_location 도구를 호출해야 한다.\n\n"
+         "✅ 도구 호출 형식:\n"
+         "Thought: 무엇을 할지 생각\n"
+         "Action: search_location\n"
+         "Action Input: {{ \"location\": \"장소명\", \"query\": \"검색 키워드\", \"radius\": 숫자, \"category\": \"카테고리\" }}\n\n"
+         "⚠️ 규칙:\n"
+         "- Action Input은 반드시 JSON 형식으로 작성\n"
+         "- 도구 실행 후 결과를 받은 뒤에는 반드시 'Final Answer:' 로 요약된 답을 작성\n"
+         "- Final Answer에는 search_location(...) 같은 호출 코드가 들어가면 안 되고, "
+         "도구의 검색 결과 요약만 들어가야 한다.\n\n"
+         "사용 가능한 도구:\n{tools}\n\n"
+         "도구 이름: {tool_names}\n"),
         ("human", "{input}"),
         MessagesPlaceholder("agent_scratchpad"),
     ])
 
-    agent = create_openai_tools_agent(llm, tools, prompt)
+    # 에이전트 생성
+    agent = create_react_agent(
+        llm=llm,
+        tools=tools,
+        prompt=prompt,
+    )
 
+    # 실행기 (파싱 오류 시 재시도 가능)
     executor = AgentExecutor(
         agent=agent,
         tools=tools,
-        verbose=True,
         handle_parsing_errors=True,
+        verbose=True
     )
     return executor
